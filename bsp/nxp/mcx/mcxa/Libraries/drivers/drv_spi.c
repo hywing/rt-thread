@@ -13,11 +13,8 @@
 #include "fsl_lpspi.h"
 #include "fsl_lpspi_edma.h"
 
-#define DMA_MAX_TRANSFER_COUNT (64)
-#define EXAMPLE_LPSPI_MASTER_PCS_FOR_INIT     (kLPSPI_Pcs0)
-#define TRANSFER_BAUDRATE 500000U /* Transfer baudrate - 500k */
-#if 1
-#define BSP_USING_SPI1
+#define DMA_MAX_TRANSFER_COUNT (32767)
+
 enum
 {
 #ifdef BSP_USING_SPI1
@@ -35,7 +32,6 @@ enum
     SPI7_INDEX,
 #endif
 };
-#endif
 
 struct lpc_spi
 {
@@ -62,68 +58,25 @@ struct lpc_spi
 static struct lpc_spi lpc_obj[] =
 {
 #ifdef BSP_USING_SPI1
-        {
-            .LPSPIx = LPSPI0,
-            .clock_attach_id = kFRO12M_to_LPSPI0,
-            .clock_div_name = kCLOCK_DivLPSPI0,
-            .clock_name = kCLOCK_Fro12M,
-            .tx_dma_request = kDma0RequestLPSPI0Tx,
-            .rx_dma_request = kDma0RequestLPSPI0Rx,
-            .DMAx = DMA0,
-            .tx_dma_chl = 1,
-            .rx_dma_chl = 0,
-            .name = "spi0",
-        },
+    {
+        .LPSPIx = LPSPI1,
+        .clock_attach_id = kFRO12M_to_LPSPI1,
+        .clock_div_name = kCLOCK_DivLPSPI1,
+        .clock_name = kCLOCK_Fro12M,
+        .tx_dma_request = kDma0RequestLPSPI1Tx,
+        .rx_dma_request = kDma0RequestLPSPI1Rx,
+        .DMAx = DMA0,
+        .tx_dma_chl = 0,
+        .rx_dma_chl = 1,
+        .name = "spi1",
+    },
 #endif
-#ifdef BSP_USING_SPI3
-        {
-            .LPSPIx = LPSPI3,
-            .clock_attach_id = kFRO_HF_DIV_to_FLEXCOMM3,
-            .clock_div_name = kCLOCK_DivFlexcom3Clk,
-            .clock_name = kCLOCK_FroHf,
-            .tx_dma_request = kDmaRequestMuxLpFlexcomm3Tx,
-            .rx_dma_request = kDmaRequestMuxLpFlexcomm3Rx,
-            .DMAx = DMA0,
-            .tx_dma_chl = 2,
-            .rx_dma_chl = 3,
-            .name = "spi3",
-        },
-#endif /* BSP_USING_SPI3 */
-#ifdef BSP_USING_SPI6
-        {
-            .LPSPIx = LPSPI6,
-            .clock_attach_id = kFRO_HF_DIV_to_FLEXCOMM6,
-            .clock_div_name = kCLOCK_DivFlexcom6Clk,
-            .clock_name = kCLOCK_FroHf,
-            .tx_dma_request = kDmaRequestMuxLpFlexcomm6Tx,
-            .rx_dma_request = kDmaRequestMuxLpFlexcomm6Rx,
-            .DMAx = DMA0,
-            .tx_dma_chl = 4,
-            .rx_dma_chl = 5,
-            .name = "spi6",
-#endif /* BSP_USING_SPI6 */
-#ifdef BSP_USING_SPI7
-        {
-            .LPSPIx = LPSPI7,
-            .clock_attach_id = kFRO_HF_DIV_to_FLEXCOMM7,
-            .clock_div_name = kCLOCK_DivFlexcom7Clk,
-            .clock_name = kCLOCK_FroHf,
-            .tx_dma_request = kDmaRequestMuxLpFlexcomm7Tx,
-            .rx_dma_request = kDmaRequestMuxLpFlexcomm7Rx,
-            .DMAx = DMA0,
-            .tx_dma_chl = 2,
-            .rx_dma_chl = 3,
-            .name = "spi7",
-        },
-#endif /* BSP_USING_SPI7 */
 };
-
 
 struct lpc_sw_spi_cs
 {
     rt_uint32_t pin;
 };
-
 
 rt_err_t rt_hw_spi_device_attach(const char *bus_name, const char *device_name, rt_uint32_t pin)
 {
@@ -154,7 +107,7 @@ static rt_err_t spi_configure(struct rt_spi_device *device, struct rt_spi_config
 
 static void LPSPI_MasterUserCallback(LPSPI_Type *base, lpspi_master_edma_handle_t *handle, status_t status, void *userData)
 {
-    struct lpc_spi *spi = (struct lpc_spi*)userData;
+    struct lpc_spi *spi = (struct lpc_spi *)userData;
     rt_sem_release(spi->sem);
 
 }
@@ -172,7 +125,7 @@ static rt_ssize_t spixfer(struct rt_spi_device *device, struct rt_spi_message *m
     struct lpc_spi *spi = (struct lpc_spi *)(device->bus->parent.user_data);
     struct lpc_sw_spi_cs *cs = device->parent.user_data;
 
-    if(message->cs_take)
+    if (message->cs_take)
     {
         rt_pin_write(cs->pin, PIN_LOW);
     }
@@ -181,8 +134,8 @@ static rt_ssize_t spixfer(struct rt_spi_device *device, struct rt_spi_message *m
     transfer.rxData   = (uint8_t *)(message->recv_buf);
     transfer.txData   = (uint8_t *)(message->send_buf);
 
-  //  if(message->length < MAX_DMA_TRANSFER_SIZE)
-    if(0)
+    //  if(message->length < MAX_DMA_TRANSFER_SIZE)
+    if (0)
     {
         LPSPI_MasterTransferBlocking(spi->LPSPIx, &transfer);
     }
@@ -192,21 +145,21 @@ static rt_ssize_t spixfer(struct rt_spi_device *device, struct rt_spi_message *m
         block = message->length / DMA_MAX_TRANSFER_COUNT;
         remain = message->length % DMA_MAX_TRANSFER_COUNT;
 
-        for(i=0; i<block; i++)
+        for (i = 0; i < block; i++)
         {
             transfer.dataSize = DMA_MAX_TRANSFER_COUNT;
-            if(message->recv_buf) transfer.rxData   = (uint8_t *)(message->recv_buf + i*DMA_MAX_TRANSFER_COUNT);
-            if(message->send_buf) transfer.txData   = (uint8_t *)(message->send_buf + i*DMA_MAX_TRANSFER_COUNT);
+            if (message->recv_buf) transfer.rxData   = (uint8_t *)(message->recv_buf + i * DMA_MAX_TRANSFER_COUNT);
+            if (message->send_buf) transfer.txData   = (uint8_t *)(message->send_buf + i * DMA_MAX_TRANSFER_COUNT);
 
             LPSPI_MasterTransferEDMA(spi->LPSPIx, &spi->spi_dma_handle, &transfer);
             rt_sem_take(spi->sem, RT_WAITING_FOREVER);
         }
 
-        if(remain)
+        if (remain)
         {
             transfer.dataSize = remain;
-            if(message->recv_buf) transfer.rxData   = (uint8_t *)(message->recv_buf + i*DMA_MAX_TRANSFER_COUNT);
-            if(message->send_buf) transfer.txData   = (uint8_t *)(message->send_buf + i*DMA_MAX_TRANSFER_COUNT);
+            if (message->recv_buf) transfer.rxData   = (uint8_t *)(message->recv_buf + i * DMA_MAX_TRANSFER_COUNT);
+            if (message->send_buf) transfer.txData   = (uint8_t *)(message->send_buf + i * DMA_MAX_TRANSFER_COUNT);
 
             LPSPI_MasterTransferEDMA(spi->LPSPIx, &spi->spi_dma_handle, &transfer);
             rt_sem_take(spi->sem, RT_WAITING_FOREVER);
@@ -214,7 +167,7 @@ static rt_ssize_t spixfer(struct rt_spi_device *device, struct rt_spi_message *m
     }
 
 
-    if(message->cs_release)
+    if (message->cs_release)
     {
         rt_pin_write(cs->pin, PIN_HIGH);
     }
@@ -236,29 +189,22 @@ int rt_hw_spi_init(void)
 {
     int i;
 
-    for(i=0; i<ARRAY_SIZE(lpc_obj); i++)
+    for (i = 0; i < ARRAY_SIZE(lpc_obj); i++)
     {
-		//RESET_PeripheralReset(kDMA_RST_SHIFT_RSTn);
         CLOCK_SetClockDiv(lpc_obj[i].clock_div_name, 1u);
         CLOCK_AttachClk(lpc_obj[i].clock_attach_id);
-		//CLOCK_EnableClock(kCLOCK_GateLPSPI0);
 
         lpc_obj[i].parent.parent.user_data = &lpc_obj[i];
         lpc_obj[i].sem = rt_sem_create("sem_spi", 0, RT_IPC_FLAG_FIFO);
 
-//		edma_config_t userConfig;
-//		EDMA_GetDefaultConfig(&userConfig);
-//		EDMA_Init(lpc_obj[i].DMAx, &userConfig);
-
         lpspi_master_config_t masterConfig;
         LPSPI_MasterGetDefaultConfig(&masterConfig);
-        masterConfig.baudRate = TRANSFER_BAUDRATE;
-		masterConfig.whichPcs = EXAMPLE_LPSPI_MASTER_PCS_FOR_INIT;
-        masterConfig.pcsToSckDelayInNanoSec        = 1000000000U / masterConfig.baudRate * 2U;
-        masterConfig.lastSckToPcsDelayInNanoSec    = 1000000000U / masterConfig.baudRate * 2U;
-        masterConfig.betweenTransferDelayInNanoSec = 1000000000U / masterConfig.baudRate * 2U;
+        masterConfig.baudRate = 12 * 1000 * 1000;
+        masterConfig.pcsToSckDelayInNanoSec        = 1000000000U / masterConfig.baudRate * 1U;
+        masterConfig.lastSckToPcsDelayInNanoSec    = 1000000000U / masterConfig.baudRate * 1U;
+        masterConfig.betweenTransferDelayInNanoSec = 1000000000U / masterConfig.baudRate * 1U;
 
-        LPSPI_MasterInit(lpc_obj[i].LPSPIx, &masterConfig, /*CLOCK_GetLpspiClkFreq(lpc_obj[i].clock_name)*/CLOCK_GetLpspiClkFreq(0u));
+        LPSPI_MasterInit(lpc_obj[i].LPSPIx, &masterConfig, CLOCK_GetFreq(lpc_obj[i].clock_name));
 
         EDMA_CreateHandle(&lpc_obj[i].dma_tx_handle, lpc_obj[i].DMAx, lpc_obj[i].tx_dma_chl);
         EDMA_CreateHandle(&lpc_obj[i].dma_rx_handle, lpc_obj[i].DMAx, lpc_obj[i].rx_dma_chl);
@@ -268,12 +214,8 @@ int rt_hw_spi_init(void)
 
         LPSPI_MasterTransferCreateHandleEDMA(lpc_obj[i].LPSPIx, &lpc_obj[i].spi_dma_handle, LPSPI_MasterUserCallback, &lpc_obj[i], &lpc_obj[i].dma_rx_handle, &lpc_obj[i].dma_tx_handle);
 
-        LPSPI_MasterTransferPrepareEDMALite(lpc_obj[i].LPSPIx, &lpc_obj[i].spi_dma_handle, kLPSPI_MasterPcs0 | kLPSPI_MasterByteSwap | kLPSPI_MasterPcsContinuous);
-		
-		rt_spi_bus_register(&lpc_obj[i].parent, lpc_obj[i].name, &lpc_spi_ops);
+        rt_spi_bus_register(&lpc_obj[i].parent, lpc_obj[i].name, &lpc_spi_ops);
     }
     return RT_EOK;
 }
-
 INIT_DEVICE_EXPORT(rt_hw_spi_init);
-
