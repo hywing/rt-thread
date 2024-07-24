@@ -356,7 +356,7 @@
 #define BSP_USING_UART
 #define BSP_USING_UART0
 #define BSP_USING_SPI
-#define BSP_USING_SPI1
+#define BSP_USING_SPI0
 #define BSP_USING_PWM
 #define BSP_USING_CTIMER1_MAT0
 /* end of On-chip Peripheral Drivers */
