@@ -172,7 +172,7 @@ void BOARD_InitPins(void)
     PORT_SetPinConfig(PORT1, 3U, &port1_3_pin59_config);
 #endif
 													
-#if CONFIG_BSP_USING_CTIMER1_MAT0
+#ifdef BSP_USING_PWM0
 	ctimer_config_t config;
 	CTIMER_Init(CTIMER1, &config);
     const port_pin_config_t port1_4_pin62_config = {/* Internal pull-up/down resistor is disabled */
